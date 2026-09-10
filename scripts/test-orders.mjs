@@ -1,0 +1,47 @@
+import assert from 'node:assert/strict';
+import {spawn,execFileSync} from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+const root=process.cwd(),state=path.join(root,'work','test-state-'+Date.now());
+fs.mkdirSync(state,{recursive:true});
+const wrangler=path.join(root,'node_modules/.bin/wrangler');
+for(const args of [['d1','migrations','apply','DB'],['d1','execute','DB','--file','db/seed.sql']])execFileSync(wrangler,[...args,'--local','--config','wrangler.local.json','--persist-to',state],{stdio:'pipe'});
+const server=spawn(path.join(root,'node_modules/.bin/vite'),['--host','127.0.0.1','--port','3011','--strictPort'],{cwd:root,env:{...process.env,AH_STATE_PATH:state},stdio:['ignore','pipe','pipe'],detached:true});
+let logs='';server.stdout.on('data',d=>logs+=d);server.stderr.on('data',d=>logs+=d);
+const base='http://localhost:3011';let cookie='';
+async function request(route,{method='GET',data,auth=false,origin=base}={}){const r=await fetch(base+route,{signal:AbortSignal.timeout(15000),method,headers:{...(method!=='GET'?{'Content-Type':'application/json','Origin':origin}:{}),...(auth?{Cookie:cookie}:{})},...(data?{body:JSON.stringify(data)}:{})});const text=await r.text();let body;try{body=JSON.parse(text)}catch{if(r.status<400)throw new Error(route+' returned non-JSON '+r.status);body={error:text}}return{status:r.status,body,headers:r.headers}}
+try{
+let up=false;for(let i=0;i<90;i++){try{if(server.exitCode!==null)throw new Error('Test server exited: '+logs);const r=await fetch(base+'/api/catalog',{signal:AbortSignal.timeout(2000)});if(r.ok){up=true;break}}catch{}await new Promise(r=>setTimeout(r,500))}assert.ok(up,'Test server started: '+logs.slice(-1000));
+const home=await fetch(base+'/');const html=await home.text();assert.equal(home.status,200);assert.ok(html.includes('rel="canonical"')&&html.includes('https://adhunikheshel.com'));assert.ok(html.includes('ছুরি')&&html.includes('ব্যাগে যোগ করুন'),'Products rendered in initial HTML');assert.equal(home.headers.get('x-content-type-options'),'nosniff');assert.equal(home.headers.get('x-frame-options'),'DENY');
+const adminPage=await fetch(base+'/admin');assert.match(adminPage.headers.get('x-robots-tag'),/noindex/);
+assert.match(await (await fetch(base+'/robots.txt')).text(),/Sitemap: https:\/\/adhunikheshel.com\/sitemap.xml/);
+assert.match(await (await fetch(base+'/sitemap.xml')).text(),/<loc>https:\/\/adhunikheshel.com\//);
+assert.equal((await request('/api/orders',{method:'POST',data:{notes:'x'.repeat(17000)}})).status,413);
+assert.equal((await fetch(base+'/api/admin/orders',{headers:{Cookie:'ah_session=invalid'}})).status,401);
+const catalog=await request('/api/catalog');assert.equal(catalog.body.products.length,4);assert.equal(catalog.body.products.flatMap(p=>p.variants).length,16);
+assert.equal((await request('/api/admin/orders')).status,401);
+const input={customerName:'TEST CUSTOMER',phone:'০১৭১২৩৪৫৬৭৮',address:'Test Road, Dhaka, Bangladesh',area:'dhaka',notes:'Isolated integration test',items:[{variantId:'churi-100',quantity:2},{variantId:'chepa-100',quantity:1}],requestKey:crypto.randomUUID(),total:1};
+assert.equal((await request('/api/orders',{method:'POST',data:input,origin:'https://example.com'})).status,403);
+for(const changes of [{phone:'123'},{area:'unknown'},{items:[]},{items:[{variantId:'churi-100',quantity:-1}]},{items:[{variantId:'churi-100',quantity:1.5}]},{items:[{variantId:'unknown',quantity:1}]},{items:[{variantId:'churi-100',quantity:1},{variantId:'churi-100',quantity:1}]}])assert.equal((await request('/api/orders',{method:'POST',data:{...input,...changes,requestKey:crypto.randomUUID()}})).status,400);
+const order=await request('/api/orders',{method:'POST',data:input});assert.equal(order.status,201);assert.equal(order.body.subtotal,680);assert.equal(order.body.delivery,80);assert.equal(order.body.total,760);
+const retry=await request('/api/orders',{method:'POST',data:input});assert.equal(retry.body.id,order.body.id);
+assert.equal((await request('/api/orders',{method:'POST',data:{...input,address:'Another Road, Dhaka'}})).status,409);
+const outside=await request('/api/orders',{method:'POST',data:{...input,area:'outside',requestKey:crypto.randomUUID()}});assert.equal(outside.body.total,800);
+const concurrentInput={...input,requestKey:crypto.randomUUID()};const concurrent=await Promise.all([request('/api/orders',{method:'POST',data:concurrentInput}),request('/api/orders',{method:'POST',data:concurrentInput})]);assert.equal(concurrent[0].body.id,concurrent[1].body.id);
+assert.equal((await request('/api/admin/login',{method:'POST',data:{password:'wrong'}})).status,401);
+const password=fs.readFileSync('.dev.vars','utf8').match(/ADMIN_PASSWORD="([^"]+)"/)[1];
+const login=await request('/api/admin/login',{method:'POST',data:{password}});assert.equal(login.status,200);const setCookie=login.headers.get('set-cookie');assert.ok(setCookie.includes('HttpOnly')&&setCookie.includes('SameSite=Strict'));cookie=setCookie.split(';')[0];
+let list=await request('/api/admin/orders',{auth:true});assert.equal(list.body.orders.length,3);const saved=list.body.orders.find(o=>o.id===order.body.id);assert.equal(saved.phone,'01712345678');assert.equal(saved.items.length,2);assert.equal(saved.payment_status,'unpaid');assert.equal(saved.payment_method,'cod');
+assert.equal((await request('/api/admin/orders',{method:'PATCH',auth:true,data:{id:saved.id,status:'invalid'}})).status,400);
+for(const status of ['confirmed','preparing','shipped','delivered'])assert.equal((await request('/api/admin/orders',{method:'PATCH',auth:true,data:{id:saved.id,status}})).status,200);
+list=await request('/api/admin/orders',{auth:true});assert.equal(list.body.orders.find(o=>o.id===saved.id).payment_status,'collected');
+assert.equal((await request('/api/admin/orders',{method:'PATCH',auth:true,data:{id:outside.body.id,status:'cancelled'}})).status,200);
+assert.equal((await request('/api/admin/orders',{method:'PATCH',auth:true,data:{id:outside.body.id,status:'confirmed',expectedStatus:'cancelled'}})).status,200);
+assert.equal((await request('/api/admin/orders',{method:'PATCH',auth:true,data:{id:saved.id,status:'pending',expectedStatus:'delivered'}})).status,200);
+list=await request('/api/admin/orders',{auth:true});assert.equal(list.body.orders.find(o=>o.id===saved.id).payment_status,'unpaid');
+assert.equal((await request('/api/admin/orders',{method:'PATCH',auth:true,data:{id:saved.id,status:'shipped',expectedStatus:'delivered'}})).status,409);
+assert.equal((await request('/api/admin/login',{method:'DELETE',auth:true})).status,200);assert.equal((await request('/api/admin/orders',{auth:true})).status,401);
+for(const route of ['/','/admin','/images/logo.png','/images/original-products.jpg'])assert.equal((await fetch(base+route)).status,200);
+console.log('PASS: SEO HTML, canonical, robots, sitemap, security headers, body limit, invalid sessions, catalog, both delivery fees, authoritative totals, validation, duplicate/concurrent submission, admin access, status transitions, COD collection, logout, and routes.');
+console.log('Tests used an isolated database; business orders were untouched.');
+}catch(e){console.error(e);console.error(logs.slice(-2000));process.exitCode=1}finally{try{process.kill(-server.pid,'SIGTERM')}catch{server.kill('SIGTERM')}}
