@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Patches dist/server/wrangler.json after each build to restore production config.
 // The build tool (vinext) regenerates this file with placeholder values each run.
-import { readFileSync, writeFileSync } from 'fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 
 const path = fileURLToPath(new URL('../dist/server/wrangler.json', import.meta.url));
@@ -17,3 +17,11 @@ cfg.routes = [
 
 writeFileSync(path, JSON.stringify(cfg, null, 2));
 console.log('✔ dist/server/wrangler.json patched with production config');
+
+// xCloud's static-site check requires dist/client/index.html to exist after the build.
+// This project is served by Cloudflare Workers (not from dist/client/), so we create
+// a placeholder to satisfy the check without breaking anything.
+const clientDir = fileURLToPath(new URL('../dist/client', import.meta.url));
+mkdirSync(clientDir, { recursive: true });
+writeFileSync(`${clientDir}/index.html`, '<!-- Cloudflare Workers app -->\n');
+console.log('✔ dist/client/index.html placeholder created for xCloud compatibility');
