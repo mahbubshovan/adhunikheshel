@@ -13,7 +13,7 @@ Local Bengali storefront for আধুনিক হেঁশেল, based on the
 Node.js 22.13 or later is required.
 
 ```sh
-cd '/Users/wpdev/Github/adhunik heshel'
+cd "adhunik heshel"
 npm install
 npm run db:setup
 npm run dev -- --host 127.0.0.1

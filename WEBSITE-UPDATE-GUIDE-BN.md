@@ -2,7 +2,7 @@
 
 এই গাইড আপনার বর্তমান ওয়েবসাইটের ফাইল ও কাজের ধরন অনুযায়ী লেখা।
 
-প্রজেক্ট ফোল্ডার: `/Users/wpdev/Github/adhunik heshel`
+প্রজেক্ট ফোল্ডার: `adhunik heshel`
 
 ## ১. এখন কোন কাজ কোথা থেকে করা যাবে
 
@@ -178,7 +178,7 @@ SELECT id, price FROM variants WHERE id = 'churi-100';
 ডেভেলপারের লোকাল যাচাই:
 
 ```sh
-cd '/Users/wpdev/Github/adhunik heshel'
+cd "adhunik heshel"
 npx tsc --noEmit
 npm run build
 npm test
