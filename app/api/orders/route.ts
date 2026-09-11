@@ -34,10 +34,12 @@ const subtotal=lines.reduce((s,i)=>s+i.price*i.quantity,0),delivery=deliveryFees
 const id='AH-'+crypto.randomUUID().slice(0,8).toUpperCase();const createdAt=new Date().toISOString();
 try{await db.batch([db.prepare('INSERT INTO orders (id,request_key,request_hash,customer_name,phone,address,area,notes,subtotal,delivery,total,payment_method,payment_status,status,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,\'cod\',\'unpaid\',\'pending\',?)').bind(id,requestKey,requestHash,customerName.trim(),normalizedPhone,address.trim(),area,notes.trim(),subtotal,delivery,total,createdAt),...lines.map(i=>db.prepare('INSERT INTO order_items (id,order_id,variant_id,name,grams,quantity,unit_price) VALUES (?,?,?,?,?,?,?)').bind(crypto.randomUUID(),id,i.id,i.name,i.grams,i.quantity,i.price))]);}catch(e){const duplicate=await db.prepare('SELECT id,total,subtotal,delivery,status,request_hash FROM orders WHERE request_key=?').bind(requestKey).first();if(duplicate&&duplicate.request_hash===requestHash){const{request_hash,...safe}=duplicate;return json(safe)}throw e}
 
-// Fire-and-forget notifications
+// Await notifications (CF Worker terminates after Response — fire-and-forget is unreliable without ctx.waitUntil)
 const cfg=env as unknown as {TELEGRAM_BOT_TOKEN?:string;TELEGRAM_CHAT_ID?:string;RESEND_API_KEY?:string};
 const orderPayload={id,customerName:customerName.trim(),phone:normalizedPhone,address:address.trim(),area,notes:notes.trim(),subtotal,delivery,total,lines};
-if(cfg.TELEGRAM_BOT_TOKEN&&cfg.TELEGRAM_CHAT_ID){notifyTelegram(orderPayload,{token:cfg.TELEGRAM_BOT_TOKEN,chatId:cfg.TELEGRAM_CHAT_ID}).catch(e=>console.error('Telegram notify failed:',e));}
-if(cfg.RESEND_API_KEY){notifyEmail(orderPayload,cfg.RESEND_API_KEY).catch(e=>console.error('Email notify failed:',e));}
+await Promise.allSettled([
+  cfg.TELEGRAM_BOT_TOKEN&&cfg.TELEGRAM_CHAT_ID?notifyTelegram(orderPayload,{token:cfg.TELEGRAM_BOT_TOKEN,chatId:cfg.TELEGRAM_CHAT_ID}):Promise.resolve(),
+  cfg.RESEND_API_KEY?notifyEmail(orderPayload,cfg.RESEND_API_KEY):Promise.resolve(),
+]);
 
 return json({id,subtotal,delivery,total,status:'pending'},201)}catch(e){return failure(e)}}
