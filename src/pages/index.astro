@@ -1,0 +1,12 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Storefront from '../components/Storefront';
+import { getProducts } from '../../lib/catalog-server';
+import '../styles/global.css';
+
+const products = await getProducts();
+---
+
+<Layout canonical="https://adhunikheshel.com">
+  <Storefront initialProducts={products} client:load />
+</Layout>

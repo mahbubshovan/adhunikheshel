@@ -1,0 +1,43 @@
+import type { APIRoute } from 'astro';
+import { getDb } from '../../../../db';
+import { body, json, sameOrigin, failure, HttpError, requireAdmin } from '../../../../lib/server';
+
+const statuses = ['pending', 'confirmed', 'preparing', 'shipped', 'delivered', 'cancelled'];
+
+export const GET: APIRoute = async ({ request: req }) => {
+  try {
+    await requireAdmin(req);
+    const db = getDb();
+    const orders = await db.prepare('SELECT id,customer_name,phone,address,area,notes,subtotal,delivery,total,payment_method,payment_status,status,created_at FROM orders ORDER BY created_at DESC').all<Record<string, unknown>>();
+    const items = await db.prepare('SELECT order_id,name,grams,quantity,unit_price FROM order_items').all<Record<string, unknown>>();
+    return json({
+      orders: orders.results.map(o => ({
+        ...o,
+        items: items.results.filter(i => i.order_id === o.id),
+      })),
+    });
+  } catch (e) {
+    return failure(e);
+  }
+};
+
+export const PATCH: APIRoute = async ({ request: req }) => {
+  try {
+    sameOrigin(req);
+    await requireAdmin(req);
+    const { id, status, expectedStatus } = await body(req);
+    if (typeof id !== 'string' || typeof status !== 'string' || !statuses.includes(status))
+      throw new HttpError(400, 'স্ট্যাটাস সঠিক নয়।');
+    const db = getDb();
+    const order = await db.prepare('SELECT status FROM orders WHERE id=?').bind(id).first<{ status: string }>();
+    if (!order) throw new HttpError(404, 'অর্ডার পাওয়া যায়নি।');
+    if (expectedStatus !== undefined && expectedStatus !== order.status)
+      throw new HttpError(409, 'অর্ডার পরিবর্তিত হয়েছে। রিফ্রেশ করে আবার চেষ্টা করুন।');
+    const result = await db.prepare('UPDATE orders SET status=?,payment_status=? WHERE id=? AND status=?')
+      .bind(status, status === 'delivered' ? 'collected' : 'unpaid', id, order.status).run();
+    if (!result.meta.changes) throw new HttpError(409, 'অর্ডার পরিবর্তিত হয়েছে। রিফ্রেশ করুন।');
+    return json({ ok: true });
+  } catch (e) {
+    return failure(e);
+  }
+};
