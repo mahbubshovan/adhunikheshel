@@ -6,10 +6,10 @@ import {deliveryFees} from '../../../lib/catalog';
 const areaLabel={dhaka:'ঢাকার ভিতরে',outside:'ঢাকার বাইরে'} as const;
 const money=(n:number)=>'৳'+n.toLocaleString('bn-BD');
 
-async function notifyTelegram(order:{id:string;customerName:string;phone:string;address:string;area:string;notes:string;subtotal:number;delivery:number;total:number;lines:{name:string;grams:number;quantity:number;price:number}[]},cfg:{token:string;chatId:string}){
+async function notifyTelegram(order:{id:string;customerName:string;phone:string;address:string;area:string;notes:string;subtotal:number;delivery:number;total:number;lines:{name:string;grams:number;quantity:number;price:number}[]},cfg:{token:string;chatIds:string[]}){
   const items=order.lines.map(i=>`• ${i.name} (${i.grams}g) × ${i.quantity} = ৳${i.quantity*i.price}`).join('\n');
   const text=`🛍 *নতুন অর্ডার — ${order.id}*\n\n*ক্রেতা:* ${order.customerName}\n*ফোন:* ${order.phone}\n*এলাকা:* ${areaLabel[order.area as keyof typeof areaLabel]||order.area}\n*ঠিকানা:* ${order.address}${order.notes?`\n*নির্দেশনা:* ${order.notes}`:''}\n\n*পণ্য:*\n${items}\n\n*পণ্যমূল্য:* ${money(order.subtotal)}\n*ডেলিভারি:* ${money(order.delivery)}\n*মোট:* ${money(order.total)}\n*পেমেন্ট:* ক্যাশ অন ডেলিভারি`;
-  await fetch(`https://api.telegram.org/bot${cfg.token}/sendMessage`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:cfg.chatId,text,parse_mode:'Markdown'})});
+  await Promise.all(cfg.chatIds.map(chat_id=>fetch(`https://api.telegram.org/bot${cfg.token}/sendMessage`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id,text,parse_mode:'Markdown'})})));
 }
 
 async function notifyEmail(order:{id:string;customerName:string;phone:string;address:string;area:string;notes:string;subtotal:number;delivery:number;total:number;lines:{name:string;grams:number;quantity:number;price:number}[]},apiKey:string){
@@ -38,7 +38,7 @@ try{await db.batch([db.prepare('INSERT INTO orders (id,request_key,request_hash,
 const cfg=env as unknown as {TELEGRAM_BOT_TOKEN?:string;TELEGRAM_CHAT_ID?:string;RESEND_API_KEY?:string};
 const orderPayload={id,customerName:customerName.trim(),phone:normalizedPhone,address:address.trim(),area,notes:notes.trim(),subtotal,delivery,total,lines};
 await Promise.allSettled([
-  cfg.TELEGRAM_BOT_TOKEN&&cfg.TELEGRAM_CHAT_ID?notifyTelegram(orderPayload,{token:cfg.TELEGRAM_BOT_TOKEN,chatId:cfg.TELEGRAM_CHAT_ID}):Promise.resolve(),
+  cfg.TELEGRAM_BOT_TOKEN&&cfg.TELEGRAM_CHAT_ID?notifyTelegram(orderPayload,{token:cfg.TELEGRAM_BOT_TOKEN,chatIds:cfg.TELEGRAM_CHAT_ID.split(',').map(s=>s.trim()).filter(Boolean)}):Promise.resolve(),
   cfg.RESEND_API_KEY?notifyEmail(orderPayload,cfg.RESEND_API_KEY):Promise.resolve(),
 ]);
 
