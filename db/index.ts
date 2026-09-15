@@ -1,8 +1,8 @@
 import Database from 'better-sqlite3';
 import { mkdirSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+// @ts-ignore — Vite ?raw suffix bundles the SQL at build time
+import migrationSql from '../drizzle/0000_needy_marrow.sql?raw';
 
 type Row = Record<string, unknown>;
 
@@ -23,10 +23,7 @@ function getRawDb(): Database.Database {
 
 function initSchema(db: Database.Database) {
   try {
-    const __dir = dirname(fileURLToPath(import.meta.url));
-    const migrationPath = join(__dir, '../drizzle/0000_needy_marrow.sql');
-    const sql = readFileSync(migrationPath, 'utf8');
-    const stmts = sql.split('--> statement-breakpoint').map(s => s.trim()).filter(Boolean);
+    const stmts = migrationSql.split('--> statement-breakpoint').map((s: string) => s.trim()).filter(Boolean);
     for (const stmt of stmts) db.exec(stmt);
     // balachao product
     db.exec(`INSERT OR IGNORE INTO products (id,name,description,image,category,active) VALUES ('balachao','চিংড়ি শুঁটকি বালাচাও','চিংড়ি শুঁটকির ভুনা—ছোট বয়ামে বড় স্বাদ। কোনো প্রিজারভেটিভ নেই, খাঁটি উপকরণে তৈরি। ভাত, খিচুড়ি ও পোলাওয়ের সাথে অসাধারণ।','/images/balachao-poster.jpg','বালাচাও',1)`);
