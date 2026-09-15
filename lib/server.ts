@@ -1,4 +1,3 @@
-import { env } from 'cloudflare:workers';
 import { getDb } from '../db';
 export class HttpError extends Error { constructor(public status: number, message: string) { super(message) } }
 export function json(data: unknown, status = 200, headers: Record<string, string> = {}) {
@@ -32,7 +31,7 @@ export async function body(req: Request) {
   } catch { throw new HttpError(400, 'তথ্য সঠিক নয়') }
 }
 export async function sessionHash(token: string) {
-  const secret = (env as unknown as { ADMIN_PASSWORD?: string }).ADMIN_PASSWORD;
+  const secret = process.env.ADMIN_PASSWORD;
   if (!secret || secret.length < 16) throw new HttpError(503, 'অ্যাডমিন পাসওয়ার্ড সেট করা হয়নি।');
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   return Array.from(new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(token)))).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -51,7 +50,12 @@ export async function hash(s: string) {
   return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 export async function limit(req: Request, kind: string, max: number) {
-  const key = kind + ':' + (req.headers.get('cf-connecting-ip') || 'local');
+  const key = kind + ':' + (
+    req.headers.get('cf-connecting-ip') ||
+    req.headers.get('x-real-ip') ||
+    req.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+    'local'
+  );
   const now = Date.now();
   const r = await getDb().prepare(
     'INSERT INTO rate_limits (key,count,expires_at) VALUES (?,1,?) ON CONFLICT(key) DO UPDATE SET count=CASE WHEN expires_at<? THEN 1 ELSE count+1 END, expires_at=CASE WHEN expires_at<? THEN excluded.expires_at ELSE expires_at END RETURNING count'

@@ -1,5 +1,4 @@
 import type { APIRoute } from 'astro';
-import { env } from 'cloudflare:workers';
 import { getDb } from '../../../db';
 import { body, sameOrigin, json, failure, HttpError, limit, hash } from '../../../lib/server';
 import { deliveryFees } from '../../../lib/catalog';
@@ -90,7 +89,7 @@ export const POST: APIRoute = async ({ request: req }) => {
       throw e;
     }
 
-    const cfg = env as unknown as { TELEGRAM_BOT_TOKEN?: string; TELEGRAM_CHAT_ID?: string };
+    const cfg = process.env as { TELEGRAM_BOT_TOKEN?: string; TELEGRAM_CHAT_ID?: string };
     if (cfg.TELEGRAM_BOT_TOKEN && cfg.TELEGRAM_CHAT_ID) {
       await notifyTelegram(
         { id, customerName: customerName.trim(), phone: normalizedPhone, address: address.trim(), area, notes: notes.trim(), subtotal, delivery, total, lines },

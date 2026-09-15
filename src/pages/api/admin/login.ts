@@ -1,5 +1,4 @@
 import type { APIRoute } from 'astro';
-import { env } from 'cloudflare:workers';
 import { getDb } from '../../../../db';
 import { body, json, sameOrigin, failure, HttpError, sessionHash, passwordMatches, limit, requireAdmin, secureAdminTransport } from '../../../../lib/server';
 
@@ -9,7 +8,7 @@ export const POST: APIRoute = async ({ request: req }) => {
     sameOrigin(req);
     await limit(req, 'login', 10);
     const { password } = await body(req);
-    const expected = (env as unknown as { ADMIN_PASSWORD?: string }).ADMIN_PASSWORD;
+    const expected = process.env.ADMIN_PASSWORD;
     if (!expected || expected.length < 16) throw new HttpError(503, 'অ্যাডমিন পাসওয়ার্ড সেট করা হয়নি।');
     if (typeof password !== 'string' || !await passwordMatches(password, expected)) throw new HttpError(401, 'পাসওয়ার্ড সঠিক নয়।');
     const token = crypto.randomUUID() + crypto.randomUUID();
