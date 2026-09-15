@@ -17,6 +17,7 @@ function getRawDb(): Database.Database {
     _db.pragma('journal_mode = WAL');
     _db.pragma('foreign_keys = ON');
     if (isNew) initSchema(_db);
+    ensureSeeds(_db);
   }
   return _db;
 }
@@ -25,11 +26,17 @@ function initSchema(db: Database.Database) {
   try {
     const stmts = migrationSql.split('--> statement-breakpoint').map((s: string) => s.trim()).filter(Boolean);
     for (const stmt of stmts) db.exec(stmt);
-    // balachao product
+  } catch (e) {
+    console.error('Schema init failed:', e);
+  }
+}
+
+function ensureSeeds(db: Database.Database) {
+  try {
     db.exec(`INSERT OR IGNORE INTO products (id,name,description,image,category,active) VALUES ('balachao','চিংড়ি শুঁটকি বালাচাও','চিংড়ি শুঁটকির ভুনা—ছোট বয়ামে বড় স্বাদ। কোনো প্রিজারভেটিভ নেই, খাঁটি উপকরণে তৈরি। ভাত, খিচুড়ি ও পোলাওয়ের সাথে অসাধারণ।','/images/balachao-poster.jpg','বালাচাও',1)`);
     db.exec(`INSERT OR IGNORE INTO variants (id,product_id,grams,price) VALUES ('balachao-100','balachao',100,250),('balachao-200','balachao',200,480),('balachao-400','balachao',400,900),('balachao-500','balachao',500,1100)`);
   } catch (e) {
-    console.error('Schema init failed:', e);
+    console.error('Seed failed:', e);
   }
 }
 
