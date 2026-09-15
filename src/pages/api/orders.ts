@@ -1,7 +1,17 @@
 import type { APIRoute } from 'astro';
+import { env } from 'cloudflare:workers';
 import { getDb } from '../../../db';
 import { body, sameOrigin, json, failure, HttpError, limit, hash } from '../../../lib/server';
 import { deliveryFees } from '../../../lib/catalog';
+
+const areaLabel = { dhaka: 'ঢাকার ভিতরে', outside: 'ঢাকার বাইরে', mirpur_dohs: 'মিরপুর ডিওএইচএস (ফ্রি ডেলিভারি)' } as const;
+const money = (n: number) => '৳' + n.toLocaleString('bn-BD');
+
+async function notifyTelegram(order: { id: string; customerName: string; phone: string; address: string; area: string; notes: string; subtotal: number; delivery: number; total: number; lines: { name: string; grams: number; quantity: number; price: number }[] }, cfg: { token: string; chatIds: string[] }) {
+  const items = order.lines.map(i => `• ${i.name} (${i.grams}g) × ${i.quantity} = ৳${i.quantity * i.price}`).join('\n');
+  const text = `🛍 *নতুন অর্ডার — ${order.id}*\n\n*ক্রেতা:* ${order.customerName}\n*ফোন:* ${order.phone}\n*এলাকা:* ${areaLabel[order.area as keyof typeof areaLabel] || order.area}\n*ঠিকানা:* ${order.address}${order.notes ? `\n*নির্দেশনা:* ${order.notes}` : ''}\n\n*পণ্য:*\n${items}\n\n*পণ্যমূল্য:* ${money(order.subtotal)}\n*ডেলিভারি:* ${money(order.delivery)}\n*মোট:* ${money(order.total)}\n*পেমেন্ট:* ক্যাশ অন ডেলিভারি`;
+  await Promise.all(cfg.chatIds.map(chat_id => fetch(`https://api.telegram.org/bot${cfg.token}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id, text, parse_mode: 'Markdown' }) })));
+}
 
 export const POST: APIRoute = async ({ request: req }) => {
   try {
@@ -19,20 +29,25 @@ export const POST: APIRoute = async ({ request: req }) => {
       ? phone.replace(/[০-৯]/g, c => String('০১২৩৪৫৬৭৮৯'.indexOf(c))).replace(/[\s-]/g, '').replace(/^\+?88/, '')
       : '';
     if (!/^01[3-9]\d{8}$/.test(normalizedPhone)) throw new HttpError(400, 'সঠিক বাংলাদেশি মোবাইল নম্বর দিন।');
-    if (area !== 'dhaka' && area !== 'outside') throw new HttpError(400, 'ডেলিভারি এলাকা বেছে নিন।');
+    if (area !== 'dhaka' && area !== 'outside' && area !== 'mirpur_dohs') throw new HttpError(400, 'ডেলিভারি এলাকা বেছে নিন।');
     if (typeof requestKey !== 'string' || !/^[a-zA-Z0-9-]{20,80}$/.test(requestKey) || !Array.isArray(items) || items.length < 1 || items.length > 16)
       throw new HttpError(400, 'ব্যাগের পণ্য সঠিক নয়।');
 
     const seen = new Set();
     for (const i of items) {
-      if (!i || typeof i.variantId !== 'string' || !Number.isInteger(i.quantity) || i.quantity < 1 || i.quantity > 20 || seen.has(i.variantId))
+      if (!i || typeof i.variantId !== 'string' || !Number.isInteger(i.quantity) || i.quantity < 1 || i.quantity > 20 ||
+        (i.type !== undefined && (typeof i.type !== 'string' || i.type.length > 100)))
         throw new HttpError(400, 'পণ্যের পরিমাণ সঠিক নয়।');
-      seen.add(i.variantId);
+      const dk = i.variantId + '|' + (i.type || '');
+      if (seen.has(dk)) throw new HttpError(400, 'পণ্যের পরিমাণ সঠিক নয়।');
+      seen.add(dk);
     }
 
     const requestHash = await hash(JSON.stringify({
       customerName: customerName.trim(), phone: normalizedPhone, address: address.trim(),
-      area, notes: notes.trim(), items: [...items].sort((a: { variantId: string }, b: { variantId: string }) => a.variantId.localeCompare(b.variantId)),
+      area, notes: notes.trim(),
+      items: [...items].sort((a: { variantId: string; type?: string }, b: { variantId: string; type?: string }) =>
+        (a.variantId + (a.type || '')).localeCompare(b.variantId + (b.type || ''))),
     }));
 
     const db = getDb();
@@ -46,10 +61,10 @@ export const POST: APIRoute = async ({ request: req }) => {
     await limit(req, 'orders', 30);
 
     const rows = await db.prepare('SELECT v.id,v.grams,v.price,p.name FROM variants v JOIN products p ON p.id=v.product_id WHERE p.active=1').all<{ id: string; grams: number; price: number; name: string }>();
-    const lines = items.map((i: { variantId: string; quantity: number }) => {
+    const lines = items.map((i: { variantId: string; quantity: number; type?: string }) => {
       const v = rows.results.find(v => v.id === i.variantId);
       if (!v) throw new HttpError(400, 'পণ্যটি এখন পাওয়া যাচ্ছে না।');
-      return { ...v, quantity: i.quantity };
+      return { ...v, name: i.type || v.name, quantity: i.quantity };
     });
 
     const subtotal = lines.reduce((s: number, i: { price: number; quantity: number }) => s + i.price * i.quantity, 0);
@@ -73,6 +88,14 @@ export const POST: APIRoute = async ({ request: req }) => {
         return json(safe);
       }
       throw e;
+    }
+
+    const cfg = env as unknown as { TELEGRAM_BOT_TOKEN?: string; TELEGRAM_CHAT_ID?: string };
+    if (cfg.TELEGRAM_BOT_TOKEN && cfg.TELEGRAM_CHAT_ID) {
+      await notifyTelegram(
+        { id, customerName: customerName.trim(), phone: normalizedPhone, address: address.trim(), area, notes: notes.trim(), subtotal, delivery, total, lines },
+        { token: cfg.TELEGRAM_BOT_TOKEN, chatIds: cfg.TELEGRAM_CHAT_ID.split(',').map((s: string) => s.trim()).filter(Boolean) }
+      ).catch(() => {});
     }
 
     return json({ id, subtotal, delivery, total, status: 'pending' }, 201);
