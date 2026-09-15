@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
+    "postbuild": "mkdir -p dist/client && echo '<!doctype html><html><body>SSR</body></html>' > dist/client/index.html",
     "preview": "wrangler dev --config wrangler.local.json ./dist/server/index.js",
     "start": "wrangler dev --config wrangler.local.json ./dist/server/index.js",
     "lint": "oxlint",
