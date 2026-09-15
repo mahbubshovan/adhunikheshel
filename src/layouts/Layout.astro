@@ -1,0 +1,35 @@
+---
+export interface Props {
+  title?: string;
+  description?: string;
+  canonical?: string;
+}
+const {
+  title = 'আধুনিক হেঁশেল — ঘরোয়া স্বাদ, ভালোবাসার রান্না',
+  description = 'ছুরি শুঁটকি, লইট্টা, পুঁটি চ্যাপা ও ইলিশের আচার। ক্যাশ অন ডেলিভারিতে অর্ডার করুন।',
+  canonical,
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="bn">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    {canonical && <link rel="canonical" href={canonical} />}
+    <link rel="icon" href="/images/logo.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="bn_BD" />
+    <meta property="og:site_name" content="আধুনিক হেঁশেল" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>
