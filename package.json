@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
+    "postbuild": "mkdir -p dist/client && echo '<!doctype html><html><body>SSR</body></html>' > dist/client/index.html",
     "preview": "node dist/server/entry.mjs",
     "start": "node dist/server/entry.mjs",
     "lint": "oxlint",
