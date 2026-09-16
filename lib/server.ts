@@ -44,7 +44,10 @@ export async function passwordMatches(input: string, expected: string) {
 }
 export function sameOrigin(req: Request) {
   const origin = req.headers.get('origin');
-  if (origin !== new URL(req.url).origin) throw new HttpError(403, 'অনুমোদিত নয়');
+  if (!origin) throw new HttpError(403, 'অনুমোদিত নয়');
+  const proto = req.headers.get('x-forwarded-proto') || new URL(req.url).protocol.replace(/:$/, '');
+  const host = req.headers.get('host') || new URL(req.url).host;
+  if (origin !== `${proto}://${host}`) throw new HttpError(403, 'অনুমোদিত নয়');
 }
 export async function hash(s: string) {
   return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))).map(b => b.toString(16).padStart(2, '0')).join('');
