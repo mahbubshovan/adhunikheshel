@@ -2,9 +2,42 @@ import type { APIRoute } from 'astro';
 import { getDb } from '../../../db';
 import { body, sameOrigin, json, failure, HttpError, limit, hash } from '../../../lib/server';
 import { deliveryFees } from '../../../lib/catalog';
+import nodemailer from 'nodemailer';
 
 const areaLabel = { dhaka: 'ঢাকার ভিতরে', outside: 'ঢাকার বাইরে', mirpur_dohs: 'মিরপুর ডিওএইচএস (ফ্রি ডেলিভারি)' } as const;
 const money = (n: number) => '৳' + n.toLocaleString('bn-BD');
+
+type OrderData = { id: string; customerName: string; phone: string; address: string; area: string; notes: string; subtotal: number; delivery: number; total: number; lines: { name: string; grams: number; quantity: number; price: number }[] };
+
+async function notifyEmail(order: OrderData, to: string) {
+  const env = process.env as Record<string, string | undefined>;
+  if (!env.SMTP_HOST || !env.SMTP_USER || !env.SMTP_PASS) return;
+  const transporter = nodemailer.createTransport({
+    host: env.SMTP_HOST,
+    port: Number(env.SMTP_PORT ?? 587),
+    secure: env.SMTP_SECURE === 'true',
+    auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },
+  });
+  const rows = order.lines.map(i => `<tr><td>${i.name} (${i.grams}g) × ${i.quantity}</td><td style="text-align:right">৳${i.quantity * i.price}</td></tr>`).join('');
+  const html = `<h2>নতুন অর্ডার — ${order.id}</h2>
+<p><b>ক্রেতা:</b> ${order.customerName}<br>
+<b>ফোন:</b> ${order.phone}<br>
+<b>এলাকা:</b> ${areaLabel[order.area as keyof typeof areaLabel] || order.area}<br>
+<b>ঠিকানা:</b> ${order.address}${order.notes ? `<br><b>নির্দেশনা:</b> ${order.notes}` : ''}</p>
+<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse">
+<thead><tr><th>পণ্য</th><th>মূল্য</th></tr></thead>
+<tbody>${rows}
+<tr><td>ডেলিভারি</td><td style="text-align:right">${money(order.delivery)}</td></tr>
+<tr><td><b>মোট</b></td><td style="text-align:right"><b>${money(order.total)}</b></td></tr>
+</tbody></table>
+<p>পেমেন্ট: ক্যাশ অন ডেলিভারি</p>`;
+  await transporter.sendMail({
+    from: `"আধুনিক হেঁশেল" <${env.SMTP_USER}>`,
+    to,
+    subject: `নতুন অর্ডার — ${order.id} — ${order.customerName}`,
+    html,
+  });
+}
 
 async function notifyTelegram(order: { id: string; customerName: string; phone: string; address: string; area: string; notes: string; subtotal: number; delivery: number; total: number; lines: { name: string; grams: number; quantity: number; price: number }[] }, cfg: { token: string; chatIds: string[] }) {
   const items = order.lines.map(i => `• ${i.name} (${i.grams}g) × ${i.quantity} = ৳${i.quantity * i.price}`).join('\n');
@@ -89,12 +122,13 @@ export const POST: APIRoute = async ({ request: req }) => {
       throw e;
     }
 
-    const cfg = process.env as { TELEGRAM_BOT_TOKEN?: string; TELEGRAM_CHAT_ID?: string };
+    const orderData = { id, customerName: customerName.trim(), phone: normalizedPhone, address: address.trim(), area, notes: notes.trim(), subtotal, delivery, total, lines };
+    const cfg = process.env as { TELEGRAM_BOT_TOKEN?: string; TELEGRAM_CHAT_ID?: string; ADMIN_EMAIL?: string };
     if (cfg.TELEGRAM_BOT_TOKEN && cfg.TELEGRAM_CHAT_ID) {
-      await notifyTelegram(
-        { id, customerName: customerName.trim(), phone: normalizedPhone, address: address.trim(), area, notes: notes.trim(), subtotal, delivery, total, lines },
-        { token: cfg.TELEGRAM_BOT_TOKEN, chatIds: cfg.TELEGRAM_CHAT_ID.split(',').map((s: string) => s.trim()).filter(Boolean) }
-      ).catch(() => {});
+      await notifyTelegram(orderData, { token: cfg.TELEGRAM_BOT_TOKEN, chatIds: cfg.TELEGRAM_CHAT_ID.split(',').map((s: string) => s.trim()).filter(Boolean) }).catch(() => {});
+    }
+    if (cfg.ADMIN_EMAIL) {
+      await notifyEmail(orderData, cfg.ADMIN_EMAIL).catch(() => {});
     }
 
     return json({ id, subtotal, delivery, total, status: 'pending' }, 201);
