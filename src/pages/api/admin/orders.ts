@@ -41,3 +41,22 @@ export const PATCH: APIRoute = async ({ request: req }) => {
     return failure(e);
   }
 };
+
+export const DELETE: APIRoute = async ({ request: req }) => {
+  try {
+    sameOrigin(req);
+    await requireAdmin(req);
+    const { id } = await body(req);
+    if (typeof id !== 'string') throw new HttpError(400, 'অর্ডার আইডি সঠিক নয়।');
+    const db = getDb();
+    const order = await db.prepare('SELECT id FROM orders WHERE id=?').bind(id).first();
+    if (!order) throw new HttpError(404, 'অর্ডার পাওয়া যায়নি।');
+    await db.batch([
+      db.prepare('DELETE FROM order_items WHERE order_id=?').bind(id),
+      db.prepare('DELETE FROM orders WHERE id=?').bind(id),
+    ]);
+    return json({ ok: true });
+  } catch (e) {
+    return failure(e);
+  }
+};
