@@ -66,8 +66,10 @@ export async function limit(req: Request, kind: string, max: number) {
   if (r!.count > max) throw new HttpError(429, 'অনেকবার চেষ্টা হয়েছে। ১৫ মিনিট পরে আবার চেষ্টা করুন।');
 }
 export function secureAdminTransport(req: Request) {
-  const u = new URL(req.url);
-  if (u.protocol !== 'https:' && !['localhost', '127.0.0.1', '[::1]'].includes(u.hostname)) throw new HttpError(403, 'HTTPS প্রয়োজন');
+  const proto = req.headers.get('x-forwarded-proto') || new URL(req.url).protocol.replace(/:$/, '');
+  const host = req.headers.get('host') || new URL(req.url).hostname;
+  const hostname = host.split(':')[0];
+  if (proto !== 'https' && !['localhost', '127.0.0.1', '[::1]'].includes(hostname)) throw new HttpError(403, 'HTTPS প্রয়োজন');
 }
 export async function requireAdmin(req: Request) {
   secureAdminTransport(req);
