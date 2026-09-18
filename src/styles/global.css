@@ -305,9 +305,10 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
   .brand img{height:50px;width:36px}
   .cart-button>span{display:none}
   .hero{grid-template-columns:1fr;gap:32px;padding-top:36px;padding-bottom:52px}
-  .hero h1{font-size:44px;letter-spacing:-1.5px}
-  .hero-photo{height:300px;margin-left:10px}
-  .round-note{left:4px;height:96px;width:96px}
+  .hero h1{font-size:36px;letter-spacing:-1px;overflow-wrap:anywhere}
+  .hero>*{min-width:0}
+  .hero-photo{height:auto;margin-left:0;max-width:100%}
+  .round-note{left:-8px;height:88px;width:88px}
   .intro{font-size:16px}
   .benefits{justify-content:center}
   .section-title{display:block}
@@ -316,17 +317,20 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
   .review-grid{grid-template-columns:1fr}
   .product-info{padding:14px}
   .product h3{font-size:16px}
-  .product-description{min-height:72px;font-size:12px}
+  .product-description{min-height:0;font-size:12px}
+  .add-button{margin-top:16px}
   .price-row{flex-wrap:wrap}
   .price-row strong{font-size:20px}
-  .story{border-radius:0}
+  .story{border-radius:0;padding-top:44px;padding-bottom:44px}
+  .reviews-section{padding:52px 0}
+  .reviews-heading{margin-bottom:32px}
   footer{flex-wrap:wrap}
   footer span{width:100%}
   .filters{margin-top:16px}
   .how>div{grid-template-columns:1fr;gap:16px}
   .how article{padding:24px}
   .review-nav{width:40px;height:40px}
-  .review-card{padding:26px}
+  .review-card{padding:20px}
   .review-text{font-size:15px}
   .cart-dialog{padding:20px 20px 52px;width:100vw;border-left:0}
   .dialog-head h2{font-size:20px}
