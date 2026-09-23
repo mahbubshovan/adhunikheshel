@@ -112,8 +112,8 @@ h2{font-size:36px;line-height:1.35;font-weight:800;margin:0;color:var(--navy)}
 .review-nav:hover{background:rgba(255,255,255,.22);transform:scale(1.08)}
 .review-stars{color:var(--gold-l);font-size:20px;letter-spacing:3px;margin-bottom:14px}
 @keyframes review-in{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
-.review-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
-.review-card{background:white;border-radius:var(--r-lg);padding:32px;animation:review-in .35s cubic-bezier(.16,1,.3,1);min-width:0;box-shadow:0 24px 72px rgba(0,0,0,.22);display:flex;flex-direction:column}
+.review-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:1080px;margin:0 auto}
+.review-card{background:white;border-radius:var(--r-lg);padding:28px;animation:review-in .35s cubic-bezier(.16,1,.3,1);min-width:0;box-shadow:0 24px 72px rgba(0,0,0,.22);display:flex;flex-direction:column}
 .review-quote-icon{color:rgba(212,160,23,.28);margin-bottom:12px;display:block}
 .review-text{font-size:15px;line-height:2;color:var(--ink);margin:0;font-style:italic}
 .review-footer{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
@@ -290,6 +290,7 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
   .hero h1{font-size:48px}
   .hero-photo{height:400px}
   .products-3,.products-2{grid-template-columns:repeat(2,1fr);max-width:100%}
+  .review-grid{grid-template-columns:repeat(2,1fr)}
   .announcement{gap:10px}
   .benefits{flex-wrap:wrap;gap:16px}
   .collection-panel{gap:32px;padding:36px;grid-template-columns:1fr 240px}
@@ -329,7 +330,7 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
   .how>div{grid-template-columns:1fr;gap:16px}
   .how article{padding:24px}
   .review-nav{width:40px;height:40px}
-  .review-card{padding:20px}
+  .review-card{padding:18px}
   .review-text{font-size:15px}
   .cart-dialog{padding:20px 20px 52px;width:100vw;border-left:0}
   .dialog-head h2{font-size:20px}

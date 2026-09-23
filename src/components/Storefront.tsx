@@ -48,7 +48,7 @@ const REVIEWS=[
 const AVATAR_COLORS=['#7c3aed','#0369a1','#0f766e','#b45309','#be123c','#15803d'];
 function avatarColor(name:string){let h=0;for(let i=0;i<name.length;i++)h=(h*31+name.charCodeAt(i))%AVATAR_COLORS.length;return AVATAR_COLORS[Math.abs(h)];}
 function ReviewGrid(){
-  return <section className="reviews-section"><div className="wrap"><p className="eyebrow">ক্রেতাদের কথা</p><h2 className="reviews-heading">আপনারা যা বলেছেন</h2><div className="review-grid">{REVIEWS.slice(-4).map((r,i)=><article key={i} className="review-card"><div className="review-footer"><div className="review-avatar" style={{background:avatarColor(r.name)}}>{r.gender==='f'?'👩':'👨'}</div><strong className="review-name">{r.name}</strong></div><Quote size={20} className="review-quote-icon"/><p className="review-text">{r.text}</p></article>)}</div></div></section>;
+  return <section className="reviews-section"><div className="wrap"><p className="eyebrow">ক্রেতাদের কথা</p><h2 className="reviews-heading">আপনারা যা বলেছেন</h2><div className="review-grid">{REVIEWS.map((r,i)=><article key={i} className="review-card"><div className="review-footer"><div className="review-avatar" style={{background:avatarColor(r.name)}}>{r.gender==='f'?'👩':'👨'}</div><strong className="review-name">{r.name}</strong></div><Quote size={20} className="review-quote-icon"/><p className="review-text">{r.text}</p></article>)}</div></div></section>;
 }
 function ProductGrid({products,add}:{products:Product[];add:(id:string,qty:number,type?:string)=>void}){
   const row1=products.slice(0,3),row2=products.slice(3);
