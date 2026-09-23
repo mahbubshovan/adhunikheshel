@@ -41,11 +41,14 @@ const REVIEWS=[
   {name:'Shifat Hossain Mridha',gender:'m',text:'লোইট্টা আর চেপা অর্ডার করেছিলাম, দুটোই খুব মজার ছিল। একদম ঘরোয়া স্বাদ, অতিরিক্ত ঝালও ছিল না। যারা হোম-স্টাইল দেশি খাবার পছন্দ করেন, তাদের জন্য অবশ্যই Highly Recommended! ❤️'},
   {name:'Israt Jahan Tisha',gender:'f',text:'এতো বেশি মজা হয়ছে মাশা-আল্লাহ। ইনশাআল্লাহ আবার খাবো।'},
   {name:'Nahid Hasan Tushar',gender:'m',text:'শুঁটকি এমনিতেই খুব পছন্দের, আর দুইটা আইটেমের টেস্টই ছিল দারুণ! 😋 গরম ভাতের সাথে একদম জমে গেছে। বিশেষ করে বাঁশপাতা চ্যাঁপা অসাধারণ, ঝাল ঝাল আর খুবই মজার। আমার কাছে ১০/১০। 🔥 লইট্টা শুঁটকি সবসময়ই ফেভারিট, এটাও খুব ভালো ছিল। Overall, খাবারের স্বাদ আর কোয়ালিটি দুটোই খুব ভালো লেগেছে। আবার অবশ্যই অর্ডার করব। 💙'},
+  {name:'Sadman Sakib Nadvi',gender:'m',text:'Ordered the Balachaw and লইট্টা শুঁটকি ভর্তা from আধুনিক হেঁশেল, and absolutely loved both! The Balachaw was perfectly cooked and had just the right amount of crunch. Everything tasted fresh, flavorful, and genuinely homemade. You can really feel that homely touch, which made the whole experience even better. Highly recommended for anyone who enjoys authentic, comforting Bangladeshi food. Will definitely order again!'},
+  {name:'Shahana Sharmin Eity',gender:'f',text:'বালাচাও, লইট্টা শুটকি, ইলিশের আচার বেশ ভালো লাগলো। বারাকাল্লাহু ফিক। আল্লাহ ব্যবসায় আরও বারাকা দান করুন। আমিন'},
+  {name:'Tanjina Siddique',gender:'f',text:'ছুরি শুটকি আরা চিংড়ি বালাচাও টা অনেক মজার ছিল।'},
 ];
 const AVATAR_COLORS=['#7c3aed','#0369a1','#0f766e','#b45309','#be123c','#15803d'];
 function avatarColor(name:string){let h=0;for(let i=0;i<name.length;i++)h=(h*31+name.charCodeAt(i))%AVATAR_COLORS.length;return AVATAR_COLORS[Math.abs(h)];}
 function ReviewGrid(){
-  return <section className="reviews-section"><div className="wrap"><p className="eyebrow">ক্রেতাদের কথা</p><h2 className="reviews-heading">আপনারা যা বলেছেন</h2><div className="review-grid">{REVIEWS.map((r,i)=><article key={i} className="review-card"><div className="review-footer"><div className="review-avatar" style={{background:avatarColor(r.name)}}>{r.gender==='f'?'👩':'👨'}</div><strong className="review-name">{r.name}</strong></div><Quote size={20} className="review-quote-icon"/><p className="review-text">{r.text}</p></article>)}</div></div></section>;
+  return <section className="reviews-section"><div className="wrap"><p className="eyebrow">ক্রেতাদের কথা</p><h2 className="reviews-heading">আপনারা যা বলেছেন</h2><div className="review-grid">{REVIEWS.slice(-4).map((r,i)=><article key={i} className="review-card"><div className="review-footer"><div className="review-avatar" style={{background:avatarColor(r.name)}}>{r.gender==='f'?'👩':'👨'}</div><strong className="review-name">{r.name}</strong></div><Quote size={20} className="review-quote-icon"/><p className="review-text">{r.text}</p></article>)}</div></div></section>;
 }
 function ProductGrid({products,add}:{products:Product[];add:(id:string,qty:number,type?:string)=>void}){
   const row1=products.slice(0,3),row2=products.slice(3);
